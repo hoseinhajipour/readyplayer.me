@@ -2,7 +2,18 @@ import bpy
 import urllib.request
 import urllib.parse
 import os
-import time
+
+bl_info = {
+    "name": "Ready Player GLB Importer",
+    "description": "Download and import GLB files from Ready Player Me with specific morph targets and poses.",
+    "author": "Hosein Hajipour",
+    "version": (1, 0, 0),
+    "blender": (2, 80, 0),
+    "location": "View3D > UI > Ready Player",
+    "warning": "",
+    "wiki_url": "",
+    "category": "Import-Export",
+}
 
 class ReadyPlayerDownloadOperator(bpy.types.Operator):
     bl_idname = "object.readyplayer_download_glb"
