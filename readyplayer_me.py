@@ -47,34 +47,46 @@ class ReadyPlayerDownloadOperator(bpy.types.Operator):
         try:
             self.report({'INFO'}, f"Starting download of {filename}")
             with urllib.request.urlopen(final_url) as response:
-                total_size = int(response.info().get("Content-Length").strip())
-                downloaded_size = 0
-                chunk_size = 1024 * 1024  # 1 MB
-                start_time = time.time()
-
                 with open(filepath, 'wb') as out_file:
-                    while True:
-                        chunk = response.read(chunk_size)
-                        if not chunk:
-                            break
-                        out_file.write(chunk)
-                        downloaded_size += len(chunk)
-
-                        # Calculate download progress
-                        progress = downloaded_size / total_size
-                        scene.download_progress = int(progress * 100)
-                        elapsed_time = time.time() - start_time
-                        self.report({'INFO'}, f"Downloaded {scene.download_progress}% ({downloaded_size / (1024 * 1024):.2f} MB / {total_size / (1024 * 1024):.2f} MB) in {elapsed_time:.2f} seconds")
+                    out_file.write(response.read())
 
             self.report({'INFO'}, f"GLB file downloaded to {filepath}")
 
             # Import the GLB file
             bpy.ops.import_scene.gltf(filepath=filepath)
 
+            # Adjust the pose if the selected pose is T-pose
+            if pose == 'T':
+                self.convert_to_t_pose(context)
+
         except Exception as e:
             self.report({'ERROR'}, f"Failed to download or import GLB file: {e}")
 
         return {'FINISHED'}
+
+    def convert_to_t_pose(self, context):
+        # Ensure that the imported armature is selected and active
+        for obj in bpy.context.scene.objects:
+            if obj.type == 'ARMATURE':
+                armature = obj
+                bpy.context.view_layer.objects.active = armature
+                armature.select_set(True)
+                break
+
+        bpy.ops.object.mode_set(mode='POSE')
+        shoulder_bones = ["upper_arm.L", "upper_arm.R"]
+
+        for bone_name in shoulder_bones:
+            bone = armature.pose.bones.get(bone_name)
+            if bone:
+                # Rotate the shoulder bones to convert to T-pose
+                bone.rotation_mode = 'XYZ'
+                bone.rotation_euler[0] = 0  # X-axis rotation
+                bone.rotation_euler[1] = 0  # Y-axis rotation
+                bone.rotation_euler[2] = 0  # Z-axis rotation
+
+        bpy.ops.object.mode_set(mode='OBJECT')
+        self.report({'INFO'}, "Converted armature to T-pose")
 
 class ReadyPlayerPanel(bpy.types.Panel):
     bl_label = "Ready Player"
@@ -98,9 +110,6 @@ class ReadyPlayerPanel(bpy.types.Panel):
         layout.prop(scene, "morph_target_mouth_open", text="mouthOpen")
 
         layout.operator(ReadyPlayerDownloadOperator.bl_idname)
-        
-        layout.label(text="Download Progress:")
-        layout.prop(scene, "download_progress", text="Progress")
 
 def register():
     bpy.utils.register_class(ReadyPlayerDownloadOperator)
@@ -139,13 +148,6 @@ def register():
         description="Include mouthOpen morph target",
         default=False
     )
-    bpy.types.Scene.download_progress = bpy.props.IntProperty(
-        name="Download Progress",
-        description="Shows the download progress",
-        default=0,
-        min=0,
-        max=100
-    )
 
 def unregister():
     bpy.utils.unregister_class(ReadyPlayerDownloadOperator)
@@ -156,7 +158,6 @@ def unregister():
     del bpy.types.Scene.morph_target_oculus_visemes
     del bpy.types.Scene.morph_target_mouth_smile
     del bpy.types.Scene.morph_target_mouth_open
-    del bpy.types.Scene.download_progress
 
 if __name__ == "__main__":
     register()
